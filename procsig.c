@@ -43,5 +43,7 @@ int main(int argc, char *argv[]){
   }
 
   printsigs();
+  freegenmem();
+  freehandlemem();
   return 0;
 }

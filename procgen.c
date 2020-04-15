@@ -7,31 +7,35 @@
 /*
   Globally defining the shared variables for the signal generating processes.
 */
-int *sig1;
-int *sig2;
-pthread_mutex_t *lock1;
-pthread_mutexattr_t attr1;
-pthread_mutex_t *lock2;
-pthread_mutexattr_t attr2;
+struct genstruct{
+  int sig1;
+  int sig2;
+  pthread_mutex_t lock1;
+  pthread_mutexattr_t attr1;
+  pthread_mutex_t lock2;
+  pthread_mutexattr_t attr2;
+};
+
+//struct pointer for shared memory
+struct genstruct *gens;
+//integer for the shared memory ID
+int shared;
 
 /*
   Initializing and mapping the shared variables and mutex's.
 */
 void initgen(){
-  sig1 = mmap(NULL, _SC_PAGESIZE, PROT_READ | PROT_WRITE,
-                  MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  sig2 = mmap(NULL, _SC_PAGESIZE, PROT_READ | PROT_WRITE,
-                  MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  lock1 = mmap(NULL, _SC_PAGESIZE, PROT_READ | PROT_WRITE,
-                  MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  pthread_mutexattr_init(&attr1);
-  pthread_mutexattr_setpshared(&attr1, PTHREAD_PROCESS_SHARED);
-  pthread_mutex_init(lock1, &attr1);
-  lock2 = mmap(NULL, _SC_PAGESIZE, PROT_READ | PROT_WRITE,
-                      MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-  pthread_mutexattr_init(&attr2);
-  pthread_mutexattr_setpshared(&attr2, PTHREAD_PROCESS_SHARED);
-  pthread_mutex_init(lock2, &attr2);
+  key_t key = ftok("key.bat", 1);
+  shared = shmget(key,sizeof(struct genstruct *),0666|IPC_CREAT);
+  gens = (struct genstruct *)shmat(shared,(void*)0,0);
+  gens->sig1 = 0;
+  gens->sig2 = 0;
+  pthread_mutexattr_init(&(gens->attr1));
+  pthread_mutexattr_setpshared(&(gens->attr1), PTHREAD_PROCESS_SHARED);
+  pthread_mutex_init(&(gens->lock1), &(gens->attr1));
+  pthread_mutexattr_init(&(gens->attr2));
+  pthread_mutexattr_setpshared(&(gens->attr2), PTHREAD_PROCESS_SHARED);
+  pthread_mutex_init(&(gens->lock2), &(gens->attr2));
 }
 
 /*
@@ -48,14 +52,14 @@ void siggen(){
     //if the random number is even, send SIGUSR1. else send SIGUSR2
     if ((sig = rand())%2 == 0){
       //signal(SIGUSR1);
-      pthread_mutex_lock(lock1);
-      (*sig1)++;
-      pthread_mutex_unlock(lock1);
+      pthread_mutex_lock(&(gens->lock1));
+      (gens->sig1)++;
+      pthread_mutex_unlock(&(gens->lock1));
     }
     else{
-      pthread_mutex_lock(lock2);
-      (*sig2)++;
-      pthread_mutex_unlock(lock2);
+      pthread_mutex_lock(&(gens->lock2));
+      (gens->sig2)++;
+      pthread_mutex_unlock(&(gens->lock2));
     }
     i++;
     //delay next iteration by .01 to .1 seconds
@@ -64,10 +68,25 @@ void siggen(){
   exit(0);
 }
 
+/*
+  Destroying locks.
+  Detatching and deallocating the shared memory.
+*/
+void freegenmem(){
+  pthread_mutex_destroy(&(gens->lock1));
+  pthread_mutexattr_destroy(&(gens->attr1));
+  pthread_mutex_destroy(&(gens->lock2));
+  pthread_mutexattr_destroy(&(gens->attr2));
+  shmdt(gens);
+  shmctl(shared,IPC_RMID,NULL);
+}
+
+
 //printing results for testing purposes
 void printsigs(){
-  float sigtotal = *sig1 + *sig2;
-  float sig1avg = (float)*sig1/sigtotal;
-  float sig2avg = (float)*sig2/sigtotal;
-  printf("total = %f\nsig1 = %d\nsig1 avg = %f\nsig2 = %d\nsig2avg = %f\n", sigtotal, *sig1, sig1avg, *sig2, sig2avg);
+  float sigtotal = gens->sig1 + gens->sig2;
+  float sig1avg = (float)gens->sig1/sigtotal;
+  float sig2avg = (float)gens->sig2/sigtotal;
+  printf("total = %f\nsig1 = %d\nsig1 avg = %f\nsig2 = %d\nsig2avg = %f\n", sigtotal, gens->sig1, sig1avg, gens->sig2, sig2avg);
+
 }

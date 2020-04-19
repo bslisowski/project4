@@ -15,6 +15,9 @@
 
 int main(int argc, char *argv[]){
 
+  signal(SIGUSR1, SIG_IGN);
+  signal(SIGUSR2, SIG_IGN);
+
   //initialize all the shared variables and locks.
   initgen();
   inithandle();
@@ -24,16 +27,18 @@ int main(int argc, char *argv[]){
   for(int i = 0; i < 8; i++){
     pid[i] = fork();
     if (pid[i] == 0){
-      if (i < 3)
+      if (i < 3){
       //signal generators
         siggen();
+      }
       else if (i == 7){
       //signal reporter
         sigreporter();
       }
-      else
+      else{
       //signal handlers
-        sighandle();
+        sighandle(i);
+      }
     }
   }
   int status;

@@ -48,23 +48,38 @@ void siggen(){
   srand(pid);
   int sig;
   int i = 0;
-  while(i < 500000){
+  useconds_t waittime;
+  //variables to make loop run for n seconds (end)
+  /*time_t start;
+  time_t curr;
+  float timeelapsed;
+  float end = 30;
+  time(&start);*/
+
+  while((gens->sig1 + gens->sig2) < 20000){
     //if the random number is even, send SIGUSR1. else send SIGUSR2
     if ((sig = rand())%2 == 0){
-      //signal(SIGUSR1);
+      kill(0, SIGUSR1);
       pthread_mutex_lock(&(gens->lock1));
       (gens->sig1)++;
       pthread_mutex_unlock(&(gens->lock1));
     }
     else{
+      kill(0, SIGUSR2);
       pthread_mutex_lock(&(gens->lock2));
       (gens->sig2)++;
       pthread_mutex_unlock(&(gens->lock2));
     }
     i++;
     //delay next iteration by .01 to .1 seconds
+    waittime = (useconds_t) ((rand()%(100000-10001)) + 10000);
+    usleep(waittime);
+    //curr = time(0);
+    //timeelapsed = difftime(curr, start);
   }
-
+  sleep(1);
+  printf("sig1 = %d\nsig2 = %d\n", gens->sig1, gens->sig2);
+  kill(0, SIGKILL);
   exit(0);
 }
 

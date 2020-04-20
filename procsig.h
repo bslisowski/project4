@@ -14,13 +14,11 @@ void inithandle();
 void freegenmem();
 void freehandlemem();
 void siggen();
-void sighandle(int i);
+void initsigs();
+void sighandlers(int i);
 void sigreporter();
-
-void printsigs();
-
-
-void sigfunct1();
-void sigfunct2();
-void sigreport1();
-void sigreport2();
+void parentexit();
+void handlersexit();
+void gensexit();
+void sigfunct(int);
+void sigreporthandle(int);

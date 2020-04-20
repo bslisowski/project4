@@ -8,8 +8,8 @@
   Globally defining the shared variables for the signal generating processes.
 */
 struct genstruct{
-  int sig1;
-  int sig2;
+  sig_atomic_t sig1;
+  sig_atomic_t sig2;
   pthread_mutex_t lock1;
   pthread_mutexattr_t attr1;
   pthread_mutex_t lock2;
@@ -17,7 +17,7 @@ struct genstruct{
 };
 
 //struct pointer for shared memory
-struct genstruct *gens;
+struct genstruct * volatile gens;
 //integer for the shared memory ID
 int shared;
 
@@ -44,6 +44,14 @@ void initgen(){
   different rand() outcomes.
 */
 void siggen(){
+  //
+  struct sigaction exitaction;
+  exitaction.sa_handler = gensexit;
+  sigemptyset(&exitaction.sa_mask);
+  exitaction.sa_flags = 0;
+  sigaction(SIGINT, &exitaction, NULL);
+  sigaction(SIGTERM, &exitaction, NULL);
+
   int pid = (int)getpid();
   srand(pid);
   int sig;
@@ -56,7 +64,7 @@ void siggen(){
   float end = 30;
   time(&start);*/
 
-  while((gens->sig1 + gens->sig2) < 20000){
+  while((gens->sig1 + gens->sig2) < 100000){
     //if the random number is even, send SIGUSR1. else send SIGUSR2
     if ((sig = rand())%2 == 0){
       kill(0, SIGUSR1);
@@ -77,9 +85,7 @@ void siggen(){
     //curr = time(0);
     //timeelapsed = difftime(curr, start);
   }
-  sleep(1);
-  printf("sig1 = %d\nsig2 = %d\n", gens->sig1, gens->sig2);
-  kill(0, SIGKILL);
+  kill(0, SIGTERM);
   exit(0);
 }
 
@@ -88,6 +94,7 @@ void siggen(){
   Detatching and deallocating the shared memory.
 */
 void freegenmem(){
+  printf("SIGUSR1 sent: %d\nSIGUSR2 sent: %d\n", gens->sig1, gens->sig2);
   pthread_mutex_destroy(&(gens->lock1));
   pthread_mutexattr_destroy(&(gens->attr1));
   pthread_mutex_destroy(&(gens->lock2));
@@ -96,12 +103,8 @@ void freegenmem(){
   shmctl(shared,IPC_RMID,NULL);
 }
 
-
-//printing results for testing purposes
-void printsigs(){
-  float sigtotal = gens->sig1 + gens->sig2;
-  float sig1avg = (float)gens->sig1/sigtotal;
-  float sig2avg = (float)gens->sig2/sigtotal;
-  printf("total = %f\nsig1 = %d\nsig1 avg = %f\nsig2 = %d\nsig2avg = %f\n", sigtotal, gens->sig1, sig1avg, gens->sig2, sig2avg);
-
+//Function to detatch shared memory
+void gensexit(){
+  shmdt(gens);
+  exit(0);
 }

@@ -11,19 +11,23 @@
 */
 
 #include "procsig.h"
-
+pid_t pid[8];
 
 int main(int argc, char *argv[]){
-
-  signal(SIGUSR1, SIG_IGN);
-  signal(SIGUSR2, SIG_IGN);
 
   //initialize all the shared variables and locks.
   initgen();
   inithandle();
 
+  //Setting up the parent process to ignore SIGUSR1 and SIGUSR2
+  struct sigaction action;
+  action.sa_handler = SIG_IGN;
+  sigemptyset(&action.sa_mask);
+  action.sa_flags = 0;
+  sigaction(SIGUSR1, &action, NULL);
+  sigaction(SIGUSR2, &action, NULL);
+
   //create child processes
-  pid_t pid[8];
   for(int i = 0; i < 8; i++){
     pid[i] = fork();
     if (pid[i] == 0){
@@ -37,18 +41,40 @@ int main(int argc, char *argv[]){
       }
       else{
       //signal handlers
-        sighandle(i);
+        sighandlers(i);
       }
     }
   }
+
+  /*
+    Setting the handler for SIGINT and SIGTERM to a function that will
+    deallocate the shared memory.
+  */
+  struct sigaction exitaction;
+  exitaction.sa_handler = parentexit;
+  sigemptyset(&exitaction.sa_mask);
+  exitaction.sa_flags = 0;
+  sigaction(SIGINT, &exitaction, NULL);
+  sigaction(SIGTERM, &exitaction, NULL);
+
   int status;
   //wait for child processes to finish
   for (int i = 0; i < 8; i++){
     waitpid(pid[i], &status, 0);
   }
 
-  printsigs();
   freegenmem();
   freehandlemem();
   return 0;
+}
+
+//Function to detatch and deallocate shared memory
+void parentexit(){
+  int status;
+  for (int i = 0; i < 8; i++){
+    waitpid(pid[i], &status, 0);
+  }
+  freegenmem();
+  freehandlemem();
+  exit(0);
 }

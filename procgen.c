@@ -58,13 +58,13 @@ void siggen(){
   int i = 0;
   useconds_t waittime;
   //variables to make loop run for n seconds (end)
-  /*time_t start;
+  time_t start;
   time_t curr;
   float timeelapsed;
   float end = 30;
-  time(&start);*/
+  time(&start);
 
-  while((gens->sig1 + gens->sig2) < 100000){
+  while(timeelapsed < end){
     //if the random number is even, send SIGUSR1. else send SIGUSR2
     if ((sig = rand())%2 == 0){
       kill(0, SIGUSR1);
@@ -82,8 +82,8 @@ void siggen(){
     //delay next iteration by .01 to .1 seconds
     waittime = (useconds_t) ((rand()%(100000-10001)) + 10000);
     usleep(waittime);
-    //curr = time(0);
-    //timeelapsed = difftime(curr, start);
+    curr = time(0);
+    timeelapsed = difftime(curr, start);
   }
   kill(0, SIGTERM);
   exit(0);
